@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dartboard - Standard Colors & Number Ring</title>
+  <meta name="description" content="A realistic SVG dartboard with standard color scheme and number ring." />
+  <style>
+    :root {
+      --board-bg: #0d0d0f;
+      --single-dark: #1c1c1e; /* deep charcoal */
+      --single-light: #e6dccb; /* sisal/ivory */
+      --ring-red: #c41f2b;    /* deep red */
+      --ring-green: #1f7a3b;  /* board green */
+      --outer-bull: #1f7a3b;  /* green */
+      --inner-bull: #c41f2b;  /* red */
+      --number-ring: #111214; /* matte black number ring */
+      --number-text: #f8f8f8; /* white numerals */
+      --wire-silver: #b7c1c8; /* steel wire accent */
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--board-bg);
+      color: #fff;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    .wrap {
+      display: grid;
+      place-items: center;
+      height: 100%;
+      padding: 2vmin;
+      box-sizing: border-box;
+    }
+
+    svg {
+      width: min(92vmin, 1200px);
+      height: auto;
+      display: block;
+      filter:
+        drop-shadow(0 20px 25px rgba(0,0,0,0.35))
+        drop-shadow(0 8px 10px rgba(0,0,0,0.25));
+    }
+
+    .label {
+      position: fixed;
+      left: 1rem;
+      bottom: 1rem;
+      color: #cbd5e1;
+      font-size: 0.875rem;
+      opacity: 0.85;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- A realistic, proportioned dartboard rendered purely in SVG -->
+    <svg viewBox="0 0 600 600" role="img" aria-labelledby="title desc">
+      <title id="title">Dartboard (Standard Colors and Number Ring)</title>
+      <desc id="desc">A regulation-style dartboard with alternating black/ivory singles, red/green doubles and triples, and white numerals on an outer number ring.</desc>
+
+      <!-- Center and sizing -->
+      <defs>
+        <circle id="C" cx="300" cy="300" r="1" />
+      </defs>
+
+      <!-- Radii definition (in px) -->
+      <!-- Full board radius -->
+      <!-- Doubles: 262-292, Triples: 172-202, Outer bull: 50, Inner bull: 20 -->
+      <g id="radii" data-radii="{ di:262, do:292, ti:172, to:202, ob:50, ib:20, board:298, numbers:320 }" />
+
+      <!-- Background board edge / surround -->
+      <circle cx="300" cy="300" r="298" fill="#0a0a0c" />
+
+      <!-- Number ring plate -->
+      <circle cx="300" cy="300" r="308" fill="var(--number-ring)" />
+
+      <!-- Main playing surface base (underlayers) -->
+      <circle cx="300" cy="300" r="292" fill="#0f1012" />
+
+      <!-- Sector groups -->
+      <g id="sectors">
+        <!-- We render 20 equal sectors, 18? each, starting with 20 at the top (?90?) -->
+        <!-- Standard numbering clockwise: 20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5 -->
+        <script type="application/ecmascript"><![CDATA[
+          (function(){
+            const svg = document.currentScript.closest('svg');
+            const NS = 'http://www.w3.org/2000/svg';
+            const cx = 300, cy = 300;
+            const radii = { di:262, do:292, ti:172, to:202, ob:50, ib:20 };
+            const sectorCount = 20;
+            const sectorAngle = 360 / sectorCount; // 18?
+            const startAngleOffset = -90; // put 20 at the top
+
+            const numbers = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+
+            // Color alternation patterns
+            function singleFill(i){
+              // Alternate between light and dark per sector index
+              return (i % 2 === 0) ? getVar('--single-light') : getVar('--single-dark');
+            }
+            function ringFill(i){
+              // Red/green alternating per sector
+              return (i % 2 === 0) ? getVar('--ring-red') : getVar('--ring-green');
+            }
+
+            function getVar(name){
+              return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+            }
+
+            function degToRad(d){
+              return d * Math.PI / 180;
+            }
+
+            function polarToCartesian(r, deg){
+              const rad = degToRad(deg);
+              return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+            }
+
+            function annularSectorPath(rInner, rOuter, a0, a1){
+              // Build an SVG path for a ring slice between angles a0..a1
+              const p0o = polarToCartesian(rOuter, a0);
+              const p1o = polarToCartesian(rOuter, a1);
+              const p0i = polarToCartesian(rInner, a1);
+              const p1i = polarToCartesian(rInner, a0);
+              const largeArc = (a1 - a0) % 360 > 180 ? 1 : 0;
+              return [
+                `M ${p0o.x} ${p0o.y}`,
+                `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p1o.x} ${p1o.y}`,
+                `L ${p0i.x} ${p0i.y}`,
+                `A ${rInner} ${rInner} 0 ${largeArc} 0 ${p1i.x} ${p1i.y}`,
+                'Z'
+              ].join(' ');
+            }
+
+            function addPath(parent, d, fill, stroke, strokeWidth){
+              const p = document.createElementNS(NS, 'path');
+              p.setAttribute('d', d);
+              if (fill) p.setAttribute('fill', fill);
+              if (stroke) p.setAttribute('stroke', stroke);
+              if (strokeWidth != null) p.setAttribute('stroke-width', strokeWidth);
+              parent.appendChild(p);
+              return p;
+            }
+
+            const g = svg.getElementById('sectors');
+
+            for (let i = 0; i < sectorCount; i++){
+              const a0 = startAngleOffset + i * sectorAngle;
+              const a1 = a0 + sectorAngle;
+
+              // Outer single (between double inner and triple outer)
+              addPath(g,
+                annularSectorPath(radii.to, radii.di, a0, a1),
+                singleFill(i)
+              );
+
+              // Inner single (between triple inner and outer bull)
+              addPath(g,
+                annularSectorPath(radii.ob, radii.ti, a0, a1),
+                singleFill(i)
+              );
+
+              // Triple ring
+              addPath(g,
+                annularSectorPath(radii.ti, radii.to, a0, a1),
+                ringFill(i)
+              );
+
+              // Double ring
+              addPath(g,
+                annularSectorPath(radii.di, radii.do, a0, a1),
+                ringFill(i)
+              );
+            }
+
+            // Bulls
+            const bulls = svg.querySelector('#bulls');
+            function addCircle(parent, r, fill, stroke, strokeWidth){
+              const c = document.createElementNS(NS, 'circle');
+              c.setAttribute('cx', cx);
+              c.setAttribute('cy', cy);
+              c.setAttribute('r', r);
+              if (fill) c.setAttribute('fill', fill);
+              if (stroke) c.setAttribute('stroke', stroke);
+              if (strokeWidth != null) c.setAttribute('stroke-width', strokeWidth);
+              parent.appendChild(c);
+            }
+
+            addCircle(bulls, radii.ob, getVar('--outer-bull'), getVar('--wire-silver'), 0.75);
+            addCircle(bulls, radii.ib, getVar('--inner-bull'), getVar('--wire-silver'), 0.75);
+
+            // Number ring (white numbers on outer ring)
+            const numberRing = svg.getElementById('number-ring');
+            const numberRadius = 320; // numeric baselines
+            for (let i = 0; i < sectorCount; i++){
+              const angleCenter = startAngleOffset + (i + 0.5) * sectorAngle;
+              const pos = polarToCartesian(numberRadius, angleCenter);
+              const t = document.createElementNS(NS, 'text');
+              t.textContent = String(numbers[i]);
+              t.setAttribute('x', pos.x);
+              t.setAttribute('y', pos.y);
+              t.setAttribute('fill', getVar('--number-text'));
+              t.setAttribute('font-size', '28');
+              t.setAttribute('font-family', 'ui-sans-serif, system-ui, Segoe UI, Arial');
+              t.setAttribute('text-anchor', 'middle');
+              t.setAttribute('dominant-baseline', 'middle');
+              // Keep numerals upright: rotate around center, then counter-rotate the glyph
+              const rotate = angleCenter + 90; // tangent orientation
+              t.setAttribute('transform', `rotate(${rotate} ${pos.x} ${pos.y}) rotate(${-rotate} ${pos.x} ${pos.y})`);
+              numberRing.appendChild(t);
+            }
+
+            // Subtle wires separating rings
+            const wires = svg.getElementById('wires');
+            const wireColor = getVar('--wire-silver');
+            const wireWidth = 0.6;
+            // Concentric wires for ring boundaries
+            [radii.ib, radii.ob, radii.ti, radii.to, radii.di, radii.do].forEach(r => {
+              const c = document.createElementNS(NS, 'circle');
+              c.setAttribute('cx', cx);
+              c.setAttribute('cy', cy);
+              c.setAttribute('r', r);
+              c.setAttribute('fill', 'none');
+              c.setAttribute('stroke', wireColor);
+              c.setAttribute('stroke-width', String(wireWidth));
+              c.setAttribute('opacity', '0.9');
+              wires.appendChild(c);
+            });
+
+            // Radial separators (sector wires)
+            for (let i = 0; i < sectorCount; i++){
+              const a = startAngleOffset + i * sectorAngle;
+              const p0 = polarToCartesian(radii.do, a);
+              const p1 = polarToCartesian(radii.ib, a);
+              const line = document.createElementNS(NS, 'line');
+              line.setAttribute('x1', p0.x);
+              line.setAttribute('y1', p0.y);
+              line.setAttribute('x2', p1.x);
+              line.setAttribute('y2', p1.y);
+              line.setAttribute('stroke', wireColor);
+              line.setAttribute('stroke-width', String(wireWidth));
+              line.setAttribute('opacity', '0.9');
+              wires.appendChild(line);
+            }
+          })();
+        ]]></script>
+      </g>
+
+      <!-- Bulls group (filled via script) -->
+      <g id="bulls"></g>
+
+      <!-- Wireframe overlays for realism -->
+      <g id="wires"></g>
+
+      <!-- Number ring text -->
+      <g id="number-ring"></g>
+
+      <!-- Outer lip to give depth -->
+      <circle cx="300" cy="300" r="335" fill="none" stroke="#000" stroke-width="10" opacity="0.45" />
+      <circle cx="300" cy="300" r="300" fill="none" stroke="#000" stroke-width="8" opacity="0.35" />
+    </svg>
+  </div>
+  <div class="label">SVG Dartboard ? Standard color scheme ? Number ring</div>
+</body>
+</html>
